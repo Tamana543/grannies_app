@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -139,11 +140,15 @@ if (savedAddress != null && !savedAddress.contains('pythonanywhere.com')) {
   }
 
   
-  Future<bool> refreshGrandma() async {
-  final api = ApiService(apiAddress);
-  await api.registerCode(code);
-  final result = await api.fetch(code);
-  if (result == null) return false;
+    Future<bool> refreshGrandma() async {
+    final api = ApiService(apiAddress);
+    try {
+      await api.registerCode(code);
+    } catch (_) {
+      // Not fatal; the check below reports connection problems.
+    }
+    final result = await api.fetch(code);
+    if (result == null) return false;
     final previous = plan;
     plan = result;
     try {
@@ -174,6 +179,9 @@ if (savedAddress != null && !savedAddress.contains('pythonanywhere.com')) {
 }
 
 String friendlyError(Object error) {
+    if (error is TimeoutException) {
+    return 'The server took too long to answer. Your saved information is still here.';
+  }
   if (error is SocketException) {
     return 'Cannot reach the server. Check its address and your connection. Your saved information is still here.';
   }

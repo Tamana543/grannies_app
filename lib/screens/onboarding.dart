@@ -290,33 +290,38 @@ class _HelperSetupPageState extends State<HelperSetupPage> {
     setState(() => moving = true);
     final old = step;
     try {
-      if (old == 0 && target == 1) {
-  final family = await widget.store.lookupFamily(
-    codeFields.map((c) => c.text).join(),
-  );
-  if (family == null) {
-    if (mounted) {
-      showError(context,
-          'That code was not found. Ask grandma to open Grannies so her code is registered, then try again.');
-    }
-    return;
-  }
-  if (!mounted) return;
-  setState(() {
-    if (age.text.isEmpty && family.age > 0) age.text = '${family.age}';
-    if (grandma.text.isEmpty) grandma.text = family.grandmaName;
-    if (helper.text.isEmpty) helper.text = family.helperName;
-    if (helperPhone.text.isEmpty) helperPhone.text = family.helperPhone;
-    final untouched =
-        medicines.length == 1 && medicines.first.name.trim().isEmpty;
-    if (untouched && family.medicines.isNotEmpty) {
-      medicines
-        ..clear()
-        ..addAll(family.medicines.map(
-            (m) => _MedicineDraft(m.name, List<String>.from(m.times))));
-    }
-  });
-}
+           if (old == 0 && target == 1) {
+        CarePlan? family;
+        try {
+          family = await widget.store.lookupFamily(
+            codeFields.map((c) => c.text).join(),
+          );
+        } catch (e) {
+          if (mounted) {
+            showError(
+              context,
+              'Could not check the server (${e.runtimeType}). Continuing on this phone.',
+            );
+          }
+        }
+        if (family != null && mounted) {
+          final found = family;
+          setState(() {
+            if (age.text.isEmpty && found.age > 0) age.text = '${found.age}';
+            if (grandma.text.isEmpty) grandma.text = found.grandmaName;
+            if (helper.text.isEmpty) helper.text = found.helperName;
+            if (helperPhone.text.isEmpty) helperPhone.text = found.helperPhone;
+            final untouched =
+                medicines.length == 1 && medicines.first.name.trim().isEmpty;
+            if (untouched && found.medicines.isNotEmpty) {
+              medicines
+                ..clear()
+                ..addAll(found.medicines.map(
+                    (m) => _MedicineDraft(m.name, List<String>.from(m.times))));
+            }
+          });
+        }
+      }
       step = target;
       await cache();
       if (!mounted) return;
