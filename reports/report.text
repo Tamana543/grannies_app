@@ -1,0 +1,79 @@
+GRANNIES HEALTHBAR — IMPORTANT PROJECT REPORT
+
+Implemented
+- Flutter Android project named grannies_healthbar; Android 9+ (API 28).
+- Mostly white theme with soft green/red accents, rounded panels, illustrated role buttons, sliding welcome banners, animated buttons and page transitions.
+- First-time role selection. A permanent-per-install four-character code uses secure randomness, time and available device details. No MAC address is used, as confirmed.
+- Grandma: underlined code, WhatsApp sharing with Android share fallback, copy button, automatic GET pairing checks, saved care plan and daily medicine schedule.
+- Helper: four code boxes, cached questionnaire with back/next transitions, age/names, multiple medicines and multiple daily times, local save then automatic server sync.
+- Daily medicine schedule on both dashboards. Grandma SOS is visibly locked and does not place calls.
+- Helper family panel supports an Android document-picker image, automatic centered 16:9 crop, 1280x720 JPEG resize, private storage and restoration after restart.
+- Onboarding progress, role, identity, care plan, API address and photo path are saved in private app storage using queued atomic writes. Failed server saves remain visibly pending with retry.
+
+API
+- Default address: https://undrdsk0m2.pythonanywhere.com/. Editable from connection settings; API_BASE_URL is also supported as a build-time initial default. Existing saved addresses take precedence and can be updated in connection settings.
+- GET / parses the supplied FastAPI newest-first list of text/date/time records; malformed rows are skipped. Matching uses the exact grandma code.
+- POST /{text} sends URL-encoded JSON in one path segment, with no request body, matching the supplied FastAPI code.
+- Payload: {"AB23--XY89":{"granmasAge":74,"granmasName":"Rose","childName":"Sam","Medicenes":{"Vitamin D":["08:00","20:30"]}}}
+- Arrays make the originally sketched medicine times valid JSON. Backend field spelling is preserved.
+- POST responds before its database write completes, so the app verifies persistence through GET before clearing pending sync.
+- Plans are limited to 1,000 characters to respect the declared text field. Names cannot contain / because the current API uses a single path parameter.
+- On Android, 127.0.0.1 means the Android device. For a server on the development computer, run: adb reverse tcp:8000 tcp:8000. The Python server can remain bound to 127.0.0.1:8000.
+
+Validation
+- flutter analyze: passed with no issues.
+- App Flutter debug bundle: compiled successfully.
+- Ten standalone domain checks: passed, including payload shape, multiple times, malformed rows, exact pairing, invalid schedules, endpoint validation and oversized-plan rejection.
+- Direct headless Flutter smoke check: passed helper validation, forward/back navigation, cached inputs, complete local save, pending sync, storage reopening, grandma pairing and disabled SOS. Welcome, medicine setup, pairing and both dashboards rendered without Flutter layout errors and were inspected visually.
+- Android MainActivity.kt: independently compiled successfully using Kotlin 2.2.20, Android SDK 36 and cached Flutter embedding dependencies.
+- Standard flutter test runner and Gradle APK packaging could not run successfully because the managed sandbox denies local sockets. Gradle reports: Could not determine a usable wildcard IP for this machine. Flutter tests report: Failed to create server socket, Operation not permitted.
+- No APK has been produced. Run flutter test and flutter build apk --debug outside this restricted environment. WhatsApp, Android photo selection and real-device behavior still require device verification; ADB is blocked here too.
+
+Important limits / next steps
+- Four-character codes can collide. The current API cannot reserve codes or enforce uniqueness. Server-side registration/collision handling is required before real multi-user deployment.
+- The code remains fixed across restarts and app upgrades. Clearing app data or uninstalling removes local storage; permanence across reinstall requires server-backed identity.
+- Use test information with the supplied API: it has no authentication/access controls, GET exposes all rows, and POST puts health data in URLs. A future production server needs authenticated access, HTTPS and JSON request bodies. HTTP is currently enabled for local development.
+- Daily times use each phone's local timezone. No background notification alarms, dose tracking, emergency-call behavior or specific-date schedules are implemented in this version.
+- Photos are center-cropped automatically; interactive crop-position adjustment is not included.
+- Release builds currently use Flutter's development signing configuration. Set up a private release key before publishing.
+
+Build instructions and source structure: README.md.
+
+Build failure follow-up
+- Kernel journal confirmed Linux OOM-killed Java PID 12162 at 2026-11-21 12:50:43; this caused the reported Gradle daemon disappearance. The dependency warnings were separate.
+- Removed approximately 2 GB of temporary validation SDK/cache files from RAM-backed /tmp that had been left behind during initial setup.
+- Reduced Gradle heap from 3 GB to 1536 MB, metaspace to 512 MB, reserved code cache to 256 MB, and workers from two to one. Parallel builds are disabled; Kotlin remains in-process.
+- Updated Gradle to 9.3.1, AGP to 9.1.1 and compiler version to 2.3.20. Removed the app's legacy Kotlin Android plugin application and enabled AGP built-in Kotlin, per Flutter's migration guide. Requires Flutter 3.47+.
+- Android compatibility: https://developer.android.com/build/releases/agp-9-1-0-release-notes
+- Flutter migration: https://docs.flutter.dev/release/breaking-changes/migrate-to-built-in-kotlin/for-app-developers
+- An APK build with this revised configuration remains unverified in the managed sandbox, which blocks local sockets and dependency downloads. First build outside the sandbox needs internet access.
+
+Self-pairing update
+- Helpers can now enter the same four-character code as their own device. The saved/API pairing key may use identical codes, for example XY89--XY89. Four-character format validation still applies.
+
+Size optimization — 2026-11-22
+- Release APKs built successfully with --split-per-abi, icon tree shaking and external Dart symbols in build/symbols. These build results supersede the earlier sandbox build limitations above.
+- app-arm64-v8a-release.apk: 16.37 MiB (88.9% smaller than the 147.63 MiB debug APK).
+- app-armeabi-v7a-release.apk: 13.74 MiB (90.7% smaller than the 147.63 MiB debug APK).
+- app-x86_64-release.apk: 17.81 MiB (87.9% smaller than the 147.63 MiB debug APK).
+- Added tool/build_small_apks.sh and documented release APK/app bundle commands. Flutter already enables Android release code/resource shrinking.
+- Removed the helper dashboard’s unnecessary 30-second timer; grandma refresh still runs only while the app is active.
+- All four API/storage tests passed; static analysis passed. APK ZIP integrity and single-architecture packaging checks passed.
+- The existing onboarding widget test stalled and was interrupted; its result remains unverified. No device runtime check was performed.
+
+Dashboard simplification — 2026-11-22
+- Removed dashboard code footers, the connection settings screen and its entry points, refresh indicators/status panels, and SOS lock text/icon.
+- Background refresh and pending uploads continue silently, with retries while the dashboard is active. The SOS button remains disabled.
+
+Phone, medicine reminders and family SOS — 2026-11-23
+- Added a required helper phone field to the existing helper-name form, cached in drafts and persisted as helperPhone in the care-plan JSON sent through the existing GET/POST server adapter. Bangladesh local/international formats normalize to 8801XXXXXXXXX; legacy plans without a phone still load.
+- Existing helpers can use the dashboard phone icon to update their contact without repeating onboarding.
+- Grandma uses native Android AlarmManager notifications for daily medicine times. Same-time medicines are grouped, old alarms are replaced on plan changes, helper role clears alarms, and boot/update/time/timezone broadcasts restore schedules. Notification and exact-alarm permission flow is available from the bell icon. Android permission/battery/force-stop restrictions still apply.
+- Added direct bdapps getStatus, subscription/send (action 1), and sms/send integration. The helper is both the family subscriber and SMS recipient; no grandma phone field was added. No extra in-app subscription confirmation is shown. Registration must be confirmed by bdapps before the next SOS tap sends the exact requested message.
+- No direct debit request is sent. bdapps subscription pricing is operator-side and cannot be set to zero through the documented endpoint. New subscriptions remain blocked by BDAPPS_FREE_SUBSCRIPTION_CONFIRMED=false until a free tariff is confirmed; existing registered subscribers can send an SOS message. This is a configuration dependency, not a completed live free-subscription verification.
+- Credentials are in gitignored .local/bdapps.json and included in direct-client builds. The server was not changed. Build helper includes local bdapps configuration when present.
+- 12 targeted tests passed, covering existing API/storage behavior, phone serialization/legacy records, native reminder handoff, direct subscription registration/status confirmation, SMS payload and per-recipient failures, and the zero-price configuration gate. Static analysis passed.
+- No live subscription, charge or SMS requests were made. No physical-device alarm delivery or carrier end-to-end check has been performed.
+
+Subscription pricing update — 2026-11-23
+- User authorized the configured bdapps subscription price. Removed the free-tariff restriction and its build flag. The first SOS tap can now register the helper directly, with provider status confirmation required. Existing registered helpers can receive SOS SMS messages. This supersedes the earlier free-tariff configuration dependency.
